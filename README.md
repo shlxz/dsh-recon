@@ -85,6 +85,41 @@ rationale 里会标注 `(inferred)`。
 
 每个 token 都带同族 fallback（如 `var(--dsw-alias-state-warn-primary, var(--dsw-alias-label-primary))`），读不到时在主题内降级，**不回退到硬编码颜色**。
 
+## 调闸门：`costModel`
+
+闸门比较两笔账。所有权重都在 Config 里，**不需要改源码**：
+
+```yaml
+- id: dsh-recon
+  config:
+    costModel:
+      interrupt:
+        base: 0.5          # 问一句的基础成本
+        busy: 0.55         # 用户在忙时追加
+        recentlyCorrected: 0.35
+        idleDiscount: 0.08 # 完全空闲时的最大减免（必须小于 base）
+        idleSaturationSeconds: 900
+        scale: 2.0         # 把打断账抬到与假设账同一区间
+      maxAssumption: 3.0   # 假设成本上限；必须高于最贵的 base
+      evidenceDiscount: 0.85
+      reversibility: { high: 0, medium: 0.35, low: 0.8 }
+      blastRadius: { local: 0.05, module: 0.3, system: 0.75 }
+```
+
+**调完怎么知道有没有效果**：调 `recon_strategy_stats`，它会按**当前模型**重放 18 种组合并输出分布：
+
+```
+闸门校准（当前 costModel）
+  忙碌时选择假设: 8/9
+  空闲时选择假设: 1/9
+```
+
+默认模型的含义：**忙碌时几乎总是不打扰**（只有最贵的决策才问），**空闲时也只对真正重要的决策开口**（"改个按钮颜色"不会问）。
+
+> 两个参数有硬约束，调错会让闸门失效：
+> - `maxAssumption` 必须高于最贵的 base（`low` 0.8 + `system` 0.75 + gapRisk 0.6 = 2.15），否则各种风险被压成同一个数字，**证据折扣完全失效**
+> - `idleDiscount` 必须小于 `base`，否则"用户空闲"等于"问问题免费"
+
 ## 与其他插件的关系：协作，不是替代
 
 | 已有生态 | dsh-recon 的位置 |
