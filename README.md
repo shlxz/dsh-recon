@@ -67,6 +67,38 @@ read_trace → query_sensor → read_multimodal
 
 临界附近的决策仍然走侦察，因为证据可能真的翻转结果。阈值可调：`config.costModel.obviousAssumptionRatio`（设为 `0` 关闭）。
 
+### 同类决策反复出错时，它会改变自己的行为
+
+这是整个插件**最关键**的一条能力。
+
+之前：`prior_failures` 只降低展示置信度，**路由完全不变**。也就是说，同一个决策类型的假设被纠正了 6 次，第 7 次它还会照做——**记录了失败，却从不因此改变行为**。
+
+这是"结果与需求不匹配"的最深层形式：**它知道你错了，并继续错下去**。
+
+现在按纠正次数分三档：
+
+| 连续纠正 | 行为 |
+|---|---|
+| 0–1 次 | 正常（一次纠正是偶发，不是规律） |
+| ≥ `softAfter`（默认 2） | **关闭"明显该假设"捷径**——"看起来显然"不再是跳过的理由，开始侦察 |
+| ≥ `forceAskAt`（默认 3） | **不再假设，直接提问**——事实证明这类决策的默认值不可信 |
+
+实测节奏（同一 gap_type 连续纠正）：
+
+```
+第1次: assume_and_flag
+第2次: assume_and_flag
+第3次: assume_and_flag   ← 开始标记 repeat-failure，捷径关闭
+第4次: minimal_question  ← 不再假设
+第5次: minimal_question
+```
+
+**一次明确的"没纠正"会清零**——假设被确认后，信任恢复。
+
+可调：`config.repeatFailure.softAfter` / `forceAskAt`。
+
+> 为什么和成本模型分开：成本模型描述**这个决定**（错了多贵、打断多烦）；失败记录描述**我们在这类决定上的历史**。两件事必须能单独调。早期版本把它们混在一起，`repeatFailure` 一度只影响显示，就是混淆的结果。
+
 **不给 `assumed_value` 时，卡片不会编一句空话**，而是明说「尚无默认假设」并告诉模型怎么补。这条字段存在的原因：0.2.1 的卡片会说「按最小可逆的方案先做」，但**从不说方案是什么**——模型唯一诚实的做法只能是把问题原样退回，那就是"披着决定外衣的提问"。
 
 校验会拒绝三类敷衍值：
@@ -275,7 +307,7 @@ dsh plugin --profile <你的profile> add dsh-recon
 git clone https://github.com/shlxz/dsh-recon.git
 cd dsh-recon
 npm install        # 拉取 peer 依赖 @deepseek-ai/schemastery
-npm test           # 128 项
+npm test           # 132 项
 ```
 
 > `@deepseek-ai/schemastery` 是 DSH 的共享包：运行时由宿主提供（所以它是 `peerDependencies`），开发时由 `devDependencies` 装一份本地副本供测试。裸 clone 不装依赖时 `lib/config.js` 会报 `ERR_MODULE_NOT_FOUND`，这是预期行为——先 `npm install`。
@@ -283,7 +315,7 @@ npm test           # 128 项
 ## 开发
 
 ```sh
-npm test                        # 128 项
+npm test                        # 132 项
 npm run scenarios               # 三条可跑通道的策略卡 + strategy 分布
 ```
 

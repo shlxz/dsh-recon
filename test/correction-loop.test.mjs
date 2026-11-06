@@ -161,12 +161,13 @@ test('a correction IN THE SESSION is picked up by read_trace (desirable, not a b
   assert.ok(second.ledgers.assumption.value < first.ledgers.assumption.value)
 })
 
-test('confidence discount is monotonic and capped, never breaks the gate', async () => {
+test('confidence itself never decides the route; only the failure STREAK may', async () => {
   const env = fakeCtx()
   apply(env.ctx, {})
   const route = tool(env.registered, 'route_info_gap')
 
   const seen = []
+  const strategies = []
   let decisionId = null
   for (let i = 0; i < 5; i += 1) {
     const args = decisionId
@@ -174,14 +175,27 @@ test('confidence discount is monotonic and capped, never breaks the gate', async
       : gapArgs
     const r = await route(args)
     seen.push(r.confidence)
-    assert.equal(r.strategy, 'assume_and_flag', 'strategy must never flip on confidence')
+    strategies.push(r.strategy)
     decisionId = r.decision_id
   }
-  // Once the streak starts, displayed confidence must not increase.
+
+  // Confidence is display-only: it must fall as the streak grows.
   for (let i = 1; i < seen.length; i += 1) {
     assert.ok(seen[i] <= seen[i - 1] + 0.01, `confidence rose: ${seen[i - 1]} → ${seen[i]}`)
   }
   assert.ok(seen[seen.length - 1] >= 0, 'confidence is clamped at 0')
+
+  // The ROUTE may change — that is the repeated-failure escalation, not the
+  // confidence discount. Once three consecutive corrections exist, this gap type
+  // stops being trusted to assume and asking takes over.
+  assert.ok(strategies[0] === 'assume_and_flag', 'a fresh gap still assumes')
+  assert.ok(
+    strategies.some((s) => s === 'minimal_question'),
+    `a chronic failure must eventually ask; got ${strategies.join(',')}`,
+  )
+  // And the flip happens at the documented threshold, not by accident.
+  const firstAsk = strategies.indexOf('minimal_question')
+  assert.ok(firstAsk >= 1, 'never on the first decision')
 })
 
 test('a correct decision ends the streak (prior_failures resets)', async () => {
