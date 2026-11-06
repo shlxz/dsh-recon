@@ -105,7 +105,30 @@ test('E2E read_trace: an existing correction in the session answers the gap', as
   assert.ok(result.decision_id.startsWith('rc_'))
 })
 
-test('E2E assume_and_flag: cheap decision + busy user forbids the question', async () => {
+test('E2E assume_and_flag WITH a default: the card names what will be built', async () => {
+  const { ctx, registered } = fakeCtx()
+  apply(ctx, {})
+  const { result } = await callTool(registered, 'route_info_gap', {
+    gap_type: 'goal',
+    decision_at_stake: '这个按钮用哪个颜色',
+    assumed_value: '品牌蓝，与现有主色一致',
+    reversibility: 'high',
+    blast_radius: 'local',
+    user_state: { busy: true, recently_corrected: false, idle_seconds: 0 },
+  })
+  assert.equal(result.strategy, 'assume_and_flag')
+  assert.equal(result.assumption_if_any.text, '品牌蓝，与现有主色一致')
+  assert.ok(result.assumption_if_any.label.includes('待确认'))
+  assert.equal(result.assumption_if_any.source, 'model')
+  assert.ok(result.ledgers.gate.prefer_assumption)
+  assert.ok(result.card.includes('按此假设执行'))
+  assert.ok(result.card.includes('品牌蓝'), 'the card must name the actual choice')
+  assert.ok(result.card.includes('override:{strategy:'))
+})
+
+test('E2E assume_and_flag WITHOUT a default says so instead of bluffing', async () => {
+  // The reported defect: the card used to print "proceed on the most reversible
+  // option" without naming one, so a model could only repeat the question back.
   const { ctx, registered } = fakeCtx()
   apply(ctx, {})
   const { result } = await callTool(registered, 'route_info_gap', {
@@ -116,11 +139,12 @@ test('E2E assume_and_flag: cheap decision + busy user forbids the question', asy
     user_state: { busy: true, recently_corrected: false, idle_seconds: 0 },
   })
   assert.equal(result.strategy, 'assume_and_flag')
-  assert.ok(result.assumption_if_any.text)
-  assert.ok(result.assumption_if_any.label.includes('待确认'))
-  assert.ok(result.ledgers.gate.prefer_assumption)
-  assert.ok(result.card.includes('按此假设执行'))
-  assert.ok(result.card.includes('override:{strategy:'))
+  // `dropNulls` strips an absent value, so the field is undefined rather than null.
+  assert.equal(result.assumption_if_any.text, undefined, 'no default means no text')
+  assert.equal(result.assumption_if_any.source, 'missing')
+  assert.match(result.assumption_if_any.guidance, /assumed_value/)
+  assert.match(result.card, /尚无默认假设/)
+  assert.doesNotMatch(result.card, /按最小可逆的方案先做/, 'the old bluff must be gone')
 })
 
 test('E2E structured_form: expensive decision + idle user routes to the form channel', async () => {
