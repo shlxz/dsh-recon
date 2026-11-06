@@ -5,8 +5,17 @@
   "type": "module",
   "main": "lib/index.js",
   "license": "MIT",
+  "author": "shlxz",
   "keywords": ["dsh", "dsh-plugin", "deepseek-harness", "recon", "routing", "clarify"],
-  "files": ["lib", "cordis.patch.yml", "README.md"],
+  "files": ["lib", "cordis.patch.yml", "README.md", "LICENSE"],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/shlxz/dsh-recon.git"
+  },
+  "homepage": "https://github.com/shlxz/dsh-recon#readme",
+  "bugs": {
+    "url": "https://github.com/shlxz/dsh-recon/issues"
+  },
   "exports": {
     ".": "./lib/index.js",
     "./client": "./lib/client.js",
