@@ -1,0 +1,5 @@
+# dsh-recon bundle patch: one host row, no client half in the MVP.
+- insert:
+    - id: dsh-recon
+      name: dsh-recon
+      config: {}

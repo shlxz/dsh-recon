@@ -1,0 +1,5 @@
+# Opted-in decision ledger (config.ledgerPersist: true writes this here).
+# Default is OFF: the ledger lives in memory only, so this file is not created.
+dsh-recon-ledger.json
+
+node_modules/
