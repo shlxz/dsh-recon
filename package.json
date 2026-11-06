@@ -29,6 +29,13 @@
   "peerDependencies": {
     "@deepseek-ai/schemastery": "*"
   },
+  "devDependencies": {
+    "@deepseek-ai/schemastery": "*"
+  },
+  "scripts": {
+    "test": "node --test \"test/*.test.mjs\"",
+    "scenarios": "node tools/scenarios.mjs"
+  },
   "dsh": {
     "bundle": {
       "patch": "./cordis.patch.yml"

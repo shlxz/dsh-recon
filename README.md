@@ -158,11 +158,33 @@ storage-domain 形状都还没确认。
 5. **`sessionProjections.stateOf` 返回裸 state**，不是 `{value}` 包装；且随插件卸载消失。
 6. **`ask()` 只认运行时 root**，子 agent 得到 `DELEGATED_CALLER`——必须当作"通道不可用"降级，否则永久挂起。
 
+## 安装
+
+**作为 DSH 插件**（推荐）：
+
+```bash
+dsh plugin --profile <你的profile> add dsh-recon
+# 或在 DSH 插件页填 dsh-recon
+```
+
+装完**重启 DSH** —— `dsh.client` 的扫描只发生在 Host 启动构造时，热挂载的 client 半不进图（见下文「预览版注意」）。
+
+**从源码开发**：
+
+```bash
+git clone https://github.com/shlxz/dsh-recon.git
+cd dsh-recon
+npm install        # 拉取 peer 依赖 @deepseek-ai/schemastery
+npm test           # 80 项
+```
+
+> `@deepseek-ai/schemastery` 是 DSH 的共享包：运行时由宿主提供（所以它是 `peerDependencies`），开发时由 `devDependencies` 装一份本地副本供测试。裸 clone 不装依赖时 `lib/config.js` 会报 `ERR_MODULE_NOT_FOUND`，这是预期行为——先 `npm install`。
+
 ## 开发
 
 ```sh
-node --test "test/*.test.mjs"   # 80 项
-node tools/scenarios.mjs        # 三条可跑通道的策略卡 + strategy 分布
+npm test                        # 80 项
+npm run scenarios               # 三条可跑通道的策略卡 + strategy 分布
 ```
 
 测试分组：
