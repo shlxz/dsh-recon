@@ -170,33 +170,22 @@ test('apply() resolves Config defaults from the schema, not a hand-written copy'
   assert.ok(schemaDefaults.sensorTools.length > 0)
   assert.ok(resolved.sensorTools.length > 0)
 
-  // And the adapter must see it.
+  // And the adapter must see it. Probe the adapter DIRECTLY rather than routing
+  // through the whole pipeline: the router legitimately short-circuits before
+  // query_sensor depending on the gate, so a routing-based assertion would go
+  // red whenever the cost policy changes — testing the solver's arithmetic, not
+  // the defect this test exists for.
   const services = new Map()
   services.set('tools', { get: (n) => (n === 'ops_glob' ? {} : undefined) })
-  const registered = []
-  const ctx = {
-    get: (k) => services.get(k),
-    on: () => () => {},
-    effect: () => {},
-    inject: () => {},
-    logger: () => ({ warn() {} }),
-    tools: { register(d) { registered.push(d); return () => {} } },
-  }
-  apply(ctx, {})
-  const def = registered.find((d) => d.name === 'route_info_gap')
-  const result = await def.execute(
-    {
-      gap_type: 'environment',
-      decision_at_stake: '端口状态',
-      reversibility: 'high',
-      blast_radius: 'local',
-      user_state: { busy: false, idle_seconds: 100 },
-    },
-    { agent: { id: 's1' }, signal: AbortSignal.timeout(5000) },
-  )
-  const reason = result.skipped.find((s) => s.channel === 'query_sensor')?.reason
-  assert.match(reason, /visible/, 'the adapter must have probed the configured tools')
-  assert.doesNotMatch(reason, /no sensorTools configured/)
+  const { createSensorAdapter } = await import('../lib/adapters/sensor.js')
+  const probe = await createSensorAdapter({
+    ctx: { get: (k) => services.get(k) },
+    agent: { id: 's1' },
+    config: resolved,
+  }).probe({ gap_type: 'environment', decision_at_stake: '端口状态' })
+
+  assert.match(probe.reason, /visible/, 'the adapter must have probed the configured tools')
+  assert.doesNotMatch(probe.reason, /no sensorTools configured/)
 })
 
 test('resolveConfig survives a malformed config without throwing', () => {
@@ -275,4 +264,41 @@ test('snapshot store notifies subscribers only on real change', async () => {
   store.set({ total: 3 })
   assert.equal(notified, 2, 'unsubscribed listeners stay silent')
   assert.deepEqual(store.getSnapshot(), { total: 3 }, 'state still updates')
+})
+
+// ---- DEFECT 11: ledger evidence was counted twice for the same fact ----------
+test('read_trace deduplicates ledger facts that say the same thing', async () => {
+  // Two rows can assert an identical fact ("constraint handled by read_trace").
+  // Counting them separately inflated coverage and raised confidence for a gap
+  // nothing had actually answered.
+  const { createLedger } = await import('../lib/ledger.js')
+  const { createTraceAdapter } = await import('../lib/adapters/trace.js')
+  const { normalizeInput } = await import('../lib/adapters/contract.js')
+
+  const ledger = createLedger()
+  ledger.record({ gap_type: 'constraint', strategy: 'read_trace', evidence: [] })
+  ledger.record({ gap_type: 'constraint', strategy: 'read_trace', evidence: [] })
+
+  const adapter = createTraceAdapter({
+    ctx: { get: () => undefined },
+    agent: { id: 's1' },
+    config: {},
+    ledger,
+  })
+  const probe = await adapter.probe(normalizeInput({
+    gap_type: 'constraint',
+    decision_at_stake: '硬限制',
+  }))
+
+  const facts = probe.evidence.filter((e) => e.tool === 'ledger')
+  assert.equal(facts.length, 1, 'one fact must appear once, no matter how many rows assert it')
+
+  // Two different facts are still both admitted.
+  ledger.record({ gap_type: 'constraint', strategy: 'structured_form', evidence: [] })
+  const probe2 = await adapter.probe(normalizeInput({
+    gap_type: 'constraint',
+    decision_at_stake: '硬限制',
+  }))
+  const facts2 = probe2.evidence.filter((e) => e.tool === 'ledger')
+  assert.ok(facts2.length >= 2, 'distinct facts must survive the dedupe')
 })
