@@ -1,6 +1,6 @@
 {
   "name": "dsh-recon",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "侦察已有痕迹，把提问留到最后 — an information-acquisition routing layer for DeepSeek Harness",
   "type": "module",
   "main": "lib/index.js",
