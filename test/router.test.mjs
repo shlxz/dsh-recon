@@ -97,15 +97,16 @@ test('B: partial evidence discounts assumption cost and can flip the gate', () =
 })
 
 test('B: partial evidence is folded into the gate before any interruption', async () => {
-  // Cheap decision + real but partial evidence: coverage stays below solveCoverage,
-  // yet the discounted assumption is already cheaper than interrupting.
+  // This case must NOT be one the obvious-assume shortcut settles, or the
+  // evidence channels never run and there is nothing to fold. `medium/module`
+  // against an idle user starts on the "ask" side, so evidence matters.
   const input = normalizeInput(
     baseArgs({
       gap_type: 'environment',
       decision_at_stake: '这个文件放在哪个目录',
-      reversibility: 'high',
-      blast_radius: 'local',
-      user_state: { busy: false, idle_seconds: 0 },
+      reversibility: 'medium',
+      blast_radius: 'module',
+      user_state: { busy: false, idle_seconds: 3600 },
     }),
   )
   const ev = [makeEvidence({ channel: 'read_trace', text: '工作区内已有 src/ 约定', weight: 0.5 })]

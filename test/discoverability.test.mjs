@@ -80,7 +80,7 @@ test('the guidance names the real triggers, not just the tool name', () => {
   assert.match(text, /route_info_gap/, 'names the tool')
   assert.match(text, /完整东西|页面|游戏/, 'names the "build me a whole thing" trigger')
   assert.match(text, /没说死|没说|不明/, 'names the under-specification trigger')
-  assert.match(text, /你正准备向用户提问/, 'covers the ask-first case')
+  assert.match(text, /正要提问|准备向用户提问/, 'covers the ask-first case')
 })
 
 test('the guidance also says when NOT to fire', () => {
@@ -89,8 +89,8 @@ test('the guidance also says when NOT to fire', () => {
   const { ctx, sections } = fakeCtx()
   apply(ctx, {})
   const text = sections[0].text()
-  assert.match(text, /什么时候不该调|不该调/, 'explicitly bounds the trigger')
-  assert.match(text, /别为了用它而用它/, 'warns against ritual use')
+  assert.match(text, /什么时候不该调|不必调/, 'explicitly bounds the trigger')
+  assert.match(text, /别为流程而流程|别为了用它而用它/, 'warns against ritual use')
 })
 
 test('the guidance explains the output contract', () => {

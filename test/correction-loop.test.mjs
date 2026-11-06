@@ -137,14 +137,23 @@ test('a correction IN THE SESSION is picked up by read_trace (desirable, not a b
   apply(env.ctx, {})
   const route = tool(env.registered, 'route_info_gap')
 
-  const first = await route(gapArgs)
-  assert.equal(first.strategy, 'assume_and_flag')
+  // This case must NOT be one the obvious-assume shortcut handles, or read_trace
+  // never runs and the test would prove nothing. `medium/module` sits close
+  // enough to the interrupt cost that the evidence channels are still consulted.
+  const args = {
+    ...gapArgs,
+    reversibility: 'medium',
+    blast_radius: 'module',
+    user_state: { busy: false, recently_corrected: false, idle_seconds: 600 },
+  }
+
+  const first = await route(args)
+  assert.ok(['assume_and_flag', 'minimal_question', 'structured_form'].includes(first.strategy))
 
   // The human states the real answer as a plain message. read_trace now HAS
-  // evidence, but one correction alone (coverage 0.45) does not clear
-  // solveCoverage, so the route still assumes — with the evidence attached.
+  // evidence, and that evidence must reach the result.
   env.pushUserMessage('不对，那个按钮应该是品牌蓝')
-  const second = await route(gapArgs)
+  const second = await route(args)
   assert.ok(second.evidence.some((e) => /品牌蓝/.test(e.text)),
     'the session correction must be read as evidence')
   // and it must widen the discount: the assumption ledger drops vs the first call.

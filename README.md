@@ -42,6 +42,31 @@ read_trace → query_sensor → read_multimodal
 
 卡片就会显示 `**按此假设执行** 单文件 HTML，键盘操控，无音效，不做移动端`。
 
+### 它读你的项目，而不只是读会话
+
+`read_trace` 除了会话历史，还会读**工作区自身的约定**——这是"AI 做出来的东西不符合这个仓库"最常见的根因：
+
+| 读什么 | 得到什么 |
+|---|---|
+| `package.json` 等 manifest | 模块系统（ESM/CommonJS）、测试运行器、是否有 TypeScript、包管理器、可用脚本 |
+| `AGENTS.md` / `CONTRIBUTING.md` | 人写下来的约定，只取第一句有意义的（不摘要长文） |
+| 顶层目录布局 | `src/` 还是 `lib/`、测试放 `tests/` 还是 `test/`、有没有 `docs/`、是否多包 |
+| `.editorconfig` / `.prettierrc` | 存在即事实（不解析内容） |
+
+**它从不读源码文件**。一个不能用 manifest、说明文件或目录名表达出来的"约定"，不是这个探针该猜的。
+
+关掉：`config.readProjectConventions: false`。
+
+> 这比问用户便宜得多。原来"不知道项目约定"只能靠问，现在多数情况能直接读到。
+
+### 明显该假设时不侦察
+
+如果闸门一看就定了（`assume ≤ interrupt × 0.5`），直接假设，**一次 probe 都不跑**。
+
+之前的实测：一个"按钮用什么颜色"也要依次探测 `read_trace → query_sensor → read_multimodal`，全空后才假设——纯仪式。现在 0 次。
+
+临界附近的决策仍然走侦察，因为证据可能真的翻转结果。阈值可调：`config.costModel.obviousAssumptionRatio`（设为 `0` 关闭）。
+
 **不给 `assumed_value` 时，卡片不会编一句空话**，而是明说「尚无默认假设」并告诉模型怎么补。这条字段存在的原因：0.2.1 的卡片会说「按最小可逆的方案先做」，但**从不说方案是什么**——模型唯一诚实的做法只能是把问题原样退回，那就是"披着决定外衣的提问"。
 
 校验会拒绝三类敷衍值：
@@ -250,7 +275,7 @@ dsh plugin --profile <你的profile> add dsh-recon
 git clone https://github.com/shlxz/dsh-recon.git
 cd dsh-recon
 npm install        # 拉取 peer 依赖 @deepseek-ai/schemastery
-npm test           # 80 项
+npm test           # 128 项
 ```
 
 > `@deepseek-ai/schemastery` 是 DSH 的共享包：运行时由宿主提供（所以它是 `peerDependencies`），开发时由 `devDependencies` 装一份本地副本供测试。裸 clone 不装依赖时 `lib/config.js` 会报 `ERR_MODULE_NOT_FOUND`，这是预期行为——先 `npm install`。
@@ -258,7 +283,7 @@ npm test           # 80 项
 ## 开发
 
 ```sh
-npm test                        # 80 项
+npm test                        # 128 项
 npm run scenarios               # 三条可跑通道的策略卡 + strategy 分布
 ```
 
